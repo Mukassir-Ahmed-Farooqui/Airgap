@@ -1,0 +1,402 @@
+package com.mukassir.airgap.ui.screens
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.mukassir.airgap.ai.InferenceEngine
+import com.mukassir.airgap.ai.ModelManager
+import com.mukassir.airgap.ai.SystemPrompts
+import com.mukassir.airgap.data.local.entities.Conversation
+import com.mukassir.airgap.data.local.entities.Message
+import com.mukassir.airgap.data.repository.ChatRepository
+import com.mukassir.airgap.data.repository.ExportData
+import com.mukassir.airgap.data.repository.ExportedChat
+import com.mukassir.airgap.data.repository.ExportedMessage
+import com.mukassir.airgap.data.repository.SettingsRepository
+import com.mukassir.airgap.utils.MemoryMonitor
+import com.mukassir.airgap.utils.TtsHelper
+import com.mukassir.airgap.utils.SecurityUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import javax.inject.Inject
+
+data class ChatUiState(
+    val conversations: List<Conversation> = emptyList(),
+    val currentConversation: Conversation? = null,
+    val messages: List<Message> = emptyList(),
+    val partialResponse: String = "",
+    val isGenerating: Boolean = false,
+    val modelState: ModelManager.ModelState = ModelManager.ModelState.NotLoaded,
+    val tokensPerSecond: Float? = null,
+    val memoryStatus: com.mukassir.airgap.utils.MemoryStatus? = null,
+    val showConversationDrawer: Boolean = false,
+    val errorMessage: String? = null,
+    val speakingMessageId: String? = null,
+    val sensitiveDataAccessibilityEnabled: Boolean = false,
+    val contextUsed: Int = 0,
+    val contextMax: Int = 4096,
+)
+
+@HiltViewModel
+class ChatViewModel @Inject constructor(
+    application: Application,
+    private val chatRepository: ChatRepository,
+    private val settingsRepository: SettingsRepository,
+    private val modelManager: ModelManager,
+    private val inferenceEngine: InferenceEngine,
+) : AndroidViewModel(application) {
+
+    private val _uiState = MutableStateFlow(ChatUiState())
+    val uiState: StateFlow<ChatUiState> = _uiState
+
+    // Building a Json instance is expensive enough that kotlinx warns about doing
+    // it per call; chat export reuses this one.
+    private val exportJson = Json { prettyPrint = true }
+
+    private val memoryMonitor = MemoryMonitor(application)
+    private val ttsHelper = TtsHelper(application)
+    private var navigationJob: kotlinx.coroutines.Job? = null
+
+    init {
+        setupCollectors()
+        memoryMonitor.startMonitoring(viewModelScope)
+        viewModelScope.launch {
+            memoryMonitor.memoryStatus.collect { status ->
+                _uiState.update { it.copy(memoryStatus = status) }
+            }
+        }
+
+        // Poll settings so the accessibility marking + context bar max can toggle without restarting the Activity.
+        viewModelScope.launch {
+            while (true) {
+                _uiState.update {
+                    it.copy(
+                        sensitiveDataAccessibilityEnabled = settingsRepository.sensitiveDataAccessibilityEnabled,
+                        contextMax = settingsRepository.contextSize,
+                    )
+                }
+                delay(500)
+            }
+        }
+
+        // Watch context size — reload model when user changes it in Settings.
+        viewModelScope.launch {
+            var lastContextSize = settingsRepository.contextSize
+            while (true) {
+                delay(1000)
+                val current = settingsRepository.contextSize
+                if (current != lastContextSize) {
+                    lastContextSize = current
+                    val conv = _uiState.value.currentConversation
+                    val ready = _uiState.value.modelState is ModelManager.ModelState.Ready
+                    if (conv != null && ready && !_uiState.value.isGenerating) {
+                        modelManager.unloadModel()
+            _uiState.update { it.copy(contextUsed = 0) }
+                        loadModelForConversation(conv)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setupCollectors() {
+        // Collect conversations
+        viewModelScope.launch {
+            chatRepository.getAllConversations().collect { conversations ->
+                _uiState.update { it.copy(conversations = conversations) }
+            }
+        }
+
+        // Collect model state
+        viewModelScope.launch {
+            modelManager.modelState.collect { state ->
+                _uiState.update { it.copy(modelState = state) }
+            }
+        }
+
+        // Collect messages for current conversation
+        viewModelScope.launch {
+            _uiState.map { it.currentConversation?.id }
+                .distinctUntilChanged()
+                .collectLatest { conversationId ->
+                    if (conversationId != null) {
+                        chatRepository.getMessagesForConversation(conversationId)
+                            .collect { messages ->
+                                _uiState.update { it.copy(messages = messages) }
+                            }
+                    } else {
+                        _uiState.update { it.copy(messages = emptyList()) }
+                    }
+                }
+        }
+    }
+
+    fun initialize() {
+        viewModelScope.launch {
+            // Load or create default conversation
+            val existing = chatRepository.getMostRecentConversation()
+            val conversation = existing ?: chatRepository.createConversation()
+            _uiState.update { it.copy(currentConversation = conversation) }
+
+            // Load model
+            val modelId = settingsRepository.activeModelId
+            if (modelId != -1L) {
+                loadModelForConversation(conversation)
+            }
+        }
+    }
+
+    private suspend fun loadModelForConversation(conversation: Conversation) {
+        val modelId = settingsRepository.activeModelId
+        if (modelId == -1L) return
+
+        val systemPrompt = SystemPrompts.getPrompt(
+            settingsRepository.systemPromptKey,
+            settingsRepository.customSystemPrompt,
+            settingsRepository.translatorFrom,
+            settingsRepository.translatorTo,
+        ).let {
+            if (settingsRepository.mathLatexHints)
+                "$it\nFor mathematical expressions, always use \$...\$ for inline math and \$\$...\$\$ for block math."
+            else it
+        }
+
+        // Get existing messages for context
+        val messages = chatRepository.getMessagesSync(conversation.id)
+        val history = messages.map { it.role to it.content }
+
+        modelManager.loadModel(
+            modelId = modelId,
+            systemPrompt = systemPrompt,
+            conversationHistory = history,
+            onSuccess = {},
+            onError = { e ->
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        )
+    }
+
+    fun sendMessage(text: String) {
+        val sanitized = SecurityUtils.sanitizePrompt(text)
+        if (sanitized.isBlank()) return
+
+        val conversation = _uiState.value.currentConversation ?: return
+
+        viewModelScope.launch {
+            // Save user message
+            chatRepository.addMessage(conversation.id, "user", sanitized)
+
+            // Auto-title on first message
+            if (conversation.title.startsWith("Chat ") || conversation.title == "New Chat") {
+                val autoTitle = sanitized.take(40).let { if (sanitized.length > 40) "$it..." else it }
+                val updated = conversation.copy(title = autoTitle)
+                chatRepository.updateConversation(updated)
+                _uiState.update { it.copy(currentConversation = updated) }
+            }
+
+            _uiState.update {
+                it.copy(
+                    isGenerating = true,
+                    partialResponse = "",
+                    tokensPerSecond = null,
+                    errorMessage = null,
+                )
+            }
+
+            // Gemma 4 (like every other arch) is templated natively by
+            // llama_chat_apply_template — no manual pre-formatting. The native
+            // layer feeds only the new turn incrementally into the KV cache.
+            inferenceEngine.generateResponse(
+                query = sanitized,
+                onToken = { partial ->
+                    _uiState.update { it.copy(partialResponse = partial) }
+                },
+                onComplete = { result ->
+                    viewModelScope.launch {
+                        chatRepository.addMessage(
+                            conversation.id, "assistant", result.response
+                        )
+                        _uiState.update {
+                            it.copy(
+                                isGenerating = false,
+                                partialResponse = "",
+                                tokensPerSecond = result.tokensPerSecond,
+                                contextUsed = result.contextLengthUsed,
+                                contextMax = settingsRepository.contextSize,
+                            )
+                        }
+                    }
+                },
+                onCancelled = {
+                    val partial = _uiState.value.partialResponse
+                    if (partial.isNotBlank()) {
+                        viewModelScope.launch {
+                            chatRepository.addMessage(
+                                conversation.id, "assistant", partial
+                            )
+                        }
+                    }
+                    _uiState.update {
+                        it.copy(isGenerating = false, partialResponse = "")
+                    }
+                },
+                onError = { e ->
+                    _uiState.update {
+                        it.copy(
+                            isGenerating = false,
+                            partialResponse = "",
+                            errorMessage = e.message,
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    fun stopGeneration() {
+        inferenceEngine.stopGeneration()
+        _uiState.update { it.copy(isGenerating = false) }
+    }
+
+    fun newConversation() {
+        navigationJob?.cancel()
+        navigationJob = viewModelScope.launch {
+            // Save any in-progress partial response before unloading
+            val partial = _uiState.value.partialResponse
+            val currentConv = _uiState.value.currentConversation
+            if (partial.isNotBlank() && currentConv != null) {
+                chatRepository.addMessage(currentConv.id, "assistant", partial)
+            }
+            _uiState.update { it.copy(isGenerating = false, partialResponse = "") }
+
+            modelManager.unloadModel()
+            _uiState.update { it.copy(contextUsed = 0) }
+
+            val conversation = chatRepository.createConversation(
+                title = "Chat ${chatRepository.getConversationCount() + 1}"
+            )
+            _uiState.update {
+                it.copy(
+                    currentConversation = conversation,
+                    showConversationDrawer = false,
+                )
+            }
+            loadModelForConversation(conversation)
+        }
+    }
+
+    fun switchConversation(conversation: Conversation) {
+        if (conversation.id == _uiState.value.currentConversation?.id) {
+            _uiState.update { it.copy(showConversationDrawer = false) }
+            return
+        }
+        navigationJob?.cancel()
+        navigationJob = viewModelScope.launch {
+            // Save any in-progress partial response before unloading
+            val partial = _uiState.value.partialResponse
+            val currentConv = _uiState.value.currentConversation
+            if (partial.isNotBlank() && currentConv != null) {
+                chatRepository.addMessage(currentConv.id, "assistant", partial)
+            }
+            _uiState.update { it.copy(isGenerating = false, partialResponse = "") }
+
+            modelManager.unloadModel()
+            _uiState.update { it.copy(contextUsed = 0) }
+            _uiState.update {
+                it.copy(
+                    currentConversation = conversation,
+                    showConversationDrawer = false,
+                )
+            }
+            loadModelForConversation(conversation)
+        }
+    }
+
+    fun deleteConversation(conversationId: String) {
+        viewModelScope.launch {
+            chatRepository.deleteConversation(conversationId)
+            if (_uiState.value.currentConversation?.id == conversationId) {
+                val next = chatRepository.getMostRecentConversation()
+                    ?: chatRepository.createConversation()
+                _uiState.update { it.copy(currentConversation = next) }
+                loadModelForConversation(next)
+            }
+        }
+    }
+
+    fun deleteMessage(messageId: String) {
+        viewModelScope.launch {
+            chatRepository.deleteMessage(messageId)
+        }
+    }
+
+    fun renameConversation(conversationId: String, newTitle: String) {
+        if (newTitle.isBlank()) return
+        viewModelScope.launch {
+            val conversation = chatRepository.getConversation(conversationId) ?: return@launch
+            val updated = conversation.copy(title = newTitle.trim(), updatedAt = System.currentTimeMillis())
+            chatRepository.updateConversation(updated)
+            if (_uiState.value.currentConversation?.id == conversationId) {
+                _uiState.update { it.copy(currentConversation = updated) }
+            }
+        }
+    }
+
+    fun toggleDrawer() {
+        _uiState.update { it.copy(showConversationDrawer = !it.showConversationDrawer) }
+    }
+
+    fun dismissError() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    suspend fun exportChats(): String {
+        val conversations = _uiState.value.conversations
+        val exportedChats = conversations.map { conv ->
+            val messages = chatRepository.getMessagesSync(conv.id)
+            ExportedChat(
+                title = conv.title,
+                systemPromptKey = conv.systemPromptKey,
+                createdAt = conv.createdAt,
+                messages = messages.map { msg ->
+                    ExportedMessage(
+                        role = msg.role,
+                        content = msg.content,
+                        timestamp = msg.timestamp,
+                    )
+                }
+            )
+        }
+        val data = ExportData(chats = exportedChats)
+        return exportJson.encodeToString(data)
+    }
+
+    fun speakMessage(messageId: String, text: String) {
+        _uiState.update { it.copy(speakingMessageId = messageId) }
+        ttsHelper.speak(text) {
+            _uiState.update { it.copy(speakingMessageId = null) }
+        }
+    }
+
+    fun stopSpeaking() {
+        ttsHelper.stop()
+        _uiState.update { it.copy(speakingMessageId = null) }
+    }
+
+
+
+    override fun onCleared() {
+        super.onCleared()
+        memoryMonitor.stopMonitoring()
+        ttsHelper.shutdown()
+    }
+}
