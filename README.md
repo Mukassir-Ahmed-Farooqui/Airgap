@@ -64,6 +64,4 @@ cd Airgap
 ## Credits & License
 
 - **License**: [Apache License 2.0](LICENSE)
-- **Based on**: [OfflineLLM](https://github.com/jegly/OfflineLLM) by jegly (Apache-2.0)
-- **Native Wrapper**: Adapted from [SmolChat-Android](https://github.com/shubham0204/SmolChat-Android) by shubham0204 (Apache-2.0)
 - **Inference Engine**: [llama.cpp](https://github.com/ggerganov/llama.cpp) (MIT License)
