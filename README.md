@@ -1,6 +1,6 @@
 <div align="center">
 
-# OfflineLLM
+# Airgap
 
 ### Fully Local AI Chat on Android
 
@@ -42,7 +42,7 @@ A fully local/offline Android LLM application built with Kotlin and Jetpack Comp
 
 ## System Architecture
 
-OfflineLLM strictly adheres to a modern **MVVM + Repository** architecture pattern. What sets it apart is the total absence of a remote backend. The application relies entirely on on-device processing via a native `ggml` backend bridged through JNI.
+Airgap strictly adheres to a modern **MVVM + Repository** architecture pattern. What sets it apart is the total absence of a remote backend. The application relies entirely on on-device processing via a native `ggml` backend bridged through JNI.
 
 **100% LOCAL / OFFLINE — NO REMOTE AI BACKEND**
 
@@ -190,7 +190,7 @@ Features a `TtsHelper` for reading AI responses aloud and a `MemoryMonitor` to e
 
 ## Prerequisites
 
-To build and run OfflineLLM from source, ensure your development environment is configured with:
+To build and run Airgap from source, ensure your development environment is configured with:
 
 - **Android Studio** (Koala or newer recommended)
 - **Android SDK** (Min SDK 33, Target SDK 37)
@@ -204,8 +204,8 @@ To build and run OfflineLLM from source, ensure your development environment is 
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-org/OfflineLLM.git
-   cd OfflineLLM
+   git clone https://github.com/your-org/Airgap.git
+   cd Airgap
    ```
 
 2. **Initialize Submodules** (Crucial for `llama.cpp`):
@@ -214,7 +214,7 @@ To build and run OfflineLLM from source, ensure your development environment is 
    ```
 
 3. **Open the Project:**
-   Open Android Studio and select **File > Open**, then navigate to the cloned `OfflineLLM` directory.
+   Open Android Studio and select **File > Open**, then navigate to the cloned `Airgap` directory.
 
 4. **Sync Gradle:**
    Allow Android Studio to sync the Gradle files. It will automatically detect CMake and the NDK to compile the native `smollm` module.
@@ -234,7 +234,7 @@ To build and run OfflineLLM from source, ensure your development environment is 
 ## Project Structure
 
 ```text
-OfflineLLM/
+Airgap/
 ├── app/                        # Main Android application module
 │   ├── src/main/java/com/mukassir/airgap/
 │   │   ├── ai/                 # InferenceEngine, ModelManager
