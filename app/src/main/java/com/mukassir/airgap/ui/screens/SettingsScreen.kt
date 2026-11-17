@@ -1,5 +1,6 @@
 package com.mukassir.airgap.ui.screens
 
+import com.mukassir.airgap.Features
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -129,181 +130,185 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // === THEME ===
-            SectionHeader("Appearance")
-            ThemeMode.entries.forEach { mode ->
-                Card(
+            if (Features.THEMES) {
+                // === THEME ===
+                SectionHeader("Appearance")
+                ThemeMode.entries.forEach { mode ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = uiState.themeMode == mode.name,
+                                onClick = { viewModel.setTheme(mode) },
+                                role = Role.RadioButton,
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (uiState.themeMode == mode.name)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = uiState.themeMode == mode.name, onClick = null)
+                            Text(mode.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 12.dp))
+                        }
+                    }
+                }
+
+                // === ACCENT COLOUR ===
+                SectionHeader("Accent Colour")
+                when (uiState.themeMode) {
+                    ThemeMode.CATPPUCCIN.name -> {
+                        val selectedFlavor = catppuccinFlavorFromKey(uiState.catppuccinFlavor)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CatppuccinFlavor.entries.forEach { flavor ->
+                                Button(
+                                    onClick = { viewModel.setCatppuccinFlavor(flavor.key) },
+                                    colors = if (selectedFlavor == flavor) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
+                                    modifier = Modifier.weight(1f),
+                                ) { Text(flavor.displayName) }
+                            }
+                        }
+                        val catScrollState = rememberScrollState()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(catScrollState)
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            CatppuccinAccent.entries.forEach { accent ->
+                                val isSelected = uiState.catppuccinAccent == accent.key
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(catppuccinAccentColor(selectedFlavor, accent))
+                                        .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+                                        .clickable { viewModel.setCatppuccinAccent(accent.key) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isSelected) {
+                                        Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.Black.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            }
+                        }
+                        MonochromeAccentsToggle(uiState.monochromeAccents) { viewModel.setMonochromeAccents(it) }
+                    }
+                    ThemeMode.DRACULA.name -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                        ) {
+                            DraculaAccent.entries.forEach { accent ->
+                                val isSelected = uiState.draculaAccent == accent.key
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(draculaAccentColor(dark = true, accent = accent))
+                                        .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+                                        .clickable { viewModel.setDraculaAccent(accent.key) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isSelected) {
+                                        Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.Black.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            }
+                        }
+                        MonochromeAccentsToggle(uiState.monochromeAccents) { viewModel.setMonochromeAccents(it) }
+                    }
+                    ThemeMode.PTYXIS.name -> {
+                        val ptyxisScrollState = rememberScrollState()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(ptyxisScrollState)
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            PtyxisPalette.entries.forEach { palette ->
+                                val isSelected = uiState.ptyxisPalette == palette.key
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(palette.primaryC))
+                                        .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+                                        .clickable { viewModel.setPtyxisPalette(palette.key) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isSelected) {
+                                        Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.Black.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            }
+                        }
+                        Text(
+                            PtyxisPalette.entries.find { it.key == uiState.ptyxisPalette }?.displayName ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    else -> {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            accentColors.forEach { accent ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(accent.seed)
+                                        .then(if (uiState.accentColor == accent.key) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+                                        .clickable { viewModel.setAccentColor(accent.key) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (uiState.accentColor == accent.key) {
+                                        Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+            }
+
+            if (Features.FONTS_SEARCH) {
+                // === FONT ===
+                SectionHeader("Font")
+                val fontScrollState = rememberScrollState()
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .selectable(
-                            selected = uiState.themeMode == mode.name,
-                            onClick = { viewModel.setTheme(mode) },
-                            role = Role.RadioButton,
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (uiState.themeMode == mode.name)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                    ),
+                        .horizontalScroll(fontScrollState),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = uiState.themeMode == mode.name, onClick = null)
-                        Text(mode.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 12.dp))
+                    AppFont.entries.forEach { font ->
+                        Button(
+                            onClick = { viewModel.setAppFont(font.key) },
+                            colors = if (uiState.appFont == font.key) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
+                        ) { Text(font.displayName) }
                     }
                 }
+                var fontScaleValue by remember { mutableFloatStateOf(uiState.fontScale) }
+                ParamSlider(
+                    label = "Text Size: ${(fontScaleValue * 100).toInt()}%",
+                    description = "Scales all app text. 100% = default.",
+                    value = fontScaleValue,
+                    onValueChange = { fontScaleValue = it },
+                    onValueChangeFinished = { viewModel.setFontScale(fontScaleValue) },
+                    valueRange = 0.85f..1.3f,
+                    steps = 8,
+                )
+
+                HorizontalDivider()
             }
-
-            // === ACCENT COLOUR ===
-            SectionHeader("Accent Colour")
-            when (uiState.themeMode) {
-                ThemeMode.CATPPUCCIN.name -> {
-                    val selectedFlavor = catppuccinFlavorFromKey(uiState.catppuccinFlavor)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CatppuccinFlavor.entries.forEach { flavor ->
-                            Button(
-                                onClick = { viewModel.setCatppuccinFlavor(flavor.key) },
-                                colors = if (selectedFlavor == flavor) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
-                                modifier = Modifier.weight(1f),
-                            ) { Text(flavor.displayName) }
-                        }
-                    }
-                    val catScrollState = rememberScrollState()
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(catScrollState)
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        CatppuccinAccent.entries.forEach { accent ->
-                            val isSelected = uiState.catppuccinAccent == accent.key
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(catppuccinAccentColor(selectedFlavor, accent))
-                                    .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-                                    .clickable { viewModel.setCatppuccinAccent(accent.key) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isSelected) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.Black.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
-                                }
-                            }
-                        }
-                    }
-                    MonochromeAccentsToggle(uiState.monochromeAccents) { viewModel.setMonochromeAccents(it) }
-                }
-                ThemeMode.DRACULA.name -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        DraculaAccent.entries.forEach { accent ->
-                            val isSelected = uiState.draculaAccent == accent.key
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(draculaAccentColor(dark = true, accent = accent))
-                                    .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-                                    .clickable { viewModel.setDraculaAccent(accent.key) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isSelected) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.Black.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
-                                }
-                            }
-                        }
-                    }
-                    MonochromeAccentsToggle(uiState.monochromeAccents) { viewModel.setMonochromeAccents(it) }
-                }
-                ThemeMode.PTYXIS.name -> {
-                    val ptyxisScrollState = rememberScrollState()
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(ptyxisScrollState)
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        PtyxisPalette.entries.forEach { palette ->
-                            val isSelected = uiState.ptyxisPalette == palette.key
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(palette.primaryC))
-                                    .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-                                    .clickable { viewModel.setPtyxisPalette(palette.key) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isSelected) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.Black.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
-                                }
-                            }
-                        }
-                    }
-                    Text(
-                        PtyxisPalette.entries.find { it.key == uiState.ptyxisPalette }?.displayName ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                else -> {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        accentColors.forEach { accent ->
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(accent.seed)
-                                    .then(if (uiState.accentColor == accent.key) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-                                    .clickable { viewModel.setAccentColor(accent.key) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (uiState.accentColor == accent.key) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(20.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            HorizontalDivider()
-
-            // === FONT ===
-            SectionHeader("Font")
-            val fontScrollState = rememberScrollState()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(fontScrollState),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AppFont.entries.forEach { font ->
-                    Button(
-                        onClick = { viewModel.setAppFont(font.key) },
-                        colors = if (uiState.appFont == font.key) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
-                    ) { Text(font.displayName) }
-                }
-            }
-            var fontScaleValue by remember { mutableFloatStateOf(uiState.fontScale) }
-            ParamSlider(
-                label = "Text Size: ${(fontScaleValue * 100).toInt()}%",
-                description = "Scales all app text. 100% = default.",
-                value = fontScaleValue,
-                onValueChange = { fontScaleValue = it },
-                onValueChangeFinished = { viewModel.setFontScale(fontScaleValue) },
-                valueRange = 0.85f..1.3f,
-                steps = 8,
-            )
-
-            HorizontalDivider()
 
             // === MODEL ===
             SectionHeader("Model")
@@ -352,425 +357,441 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            // === PERFORMANCE ===
-            SectionHeader("Performance")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("GPU Acceleration (Vulkan)")
-                    Text(
-                        if (uiState.gpuDeviceName.isNotEmpty()) "GPU: ${uiState.gpuDeviceName}"
-                        else "No compatible GPU detected",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (Features.PERFORMANCE) {
+                // === PERFORMANCE ===
+                SectionHeader("Performance")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("GPU Acceleration (Vulkan)")
+                        Text(
+                            if (uiState.gpuDeviceName.isNotEmpty()) "GPU: ${uiState.gpuDeviceName}"
+                            else "No compatible GPU detected",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = uiState.useGpu, onCheckedChange = { viewModel.setUseGpu(it) })
+                }
+                if (uiState.useGpu) {
+                    var gpuLayersValue by remember { mutableFloatStateOf(uiState.gpuLayers.toFloat()) }
+                    ParamSlider(
+                        label = "GPU Layers: ${gpuLayersValue.toInt()}" + if (gpuLayersValue.toInt() >= 99) " (all)" else "",
+                        description = "How many model layers to offload to the GPU. 99 = everything. Lower this if GPU loading fails or the device runs out of memory.",
+                        value = gpuLayersValue,
+                        onValueChange = { gpuLayersValue = it },
+                        onValueChangeFinished = { viewModel.setGpuLayers(gpuLayersValue.toInt()) },
+                        valueRange = 1f..99f,
+                        steps = 97,
                     )
                 }
-                Switch(checked = uiState.useGpu, onCheckedChange = { viewModel.setUseGpu(it) })
-            }
-            if (uiState.useGpu) {
-                var gpuLayersValue by remember { mutableFloatStateOf(uiState.gpuLayers.toFloat()) }
+                val maxThreads = remember { Runtime.getRuntime().availableProcessors() }
+                var threadsValue by remember { mutableFloatStateOf(uiState.numThreads.toFloat()) }
                 ParamSlider(
-                    label = "GPU Layers: ${gpuLayersValue.toInt()}" + if (gpuLayersValue.toInt() >= 99) " (all)" else "",
-                    description = "How many model layers to offload to the GPU. 99 = everything. Lower this if GPU loading fails or the device runs out of memory.",
-                    value = gpuLayersValue,
-                    onValueChange = { gpuLayersValue = it },
-                    onValueChangeFinished = { viewModel.setGpuLayers(gpuLayersValue.toInt()) },
-                    valueRange = 1f..99f,
-                    steps = 97,
+                    label = "CPU Threads: ${threadsValue.toInt()}",
+                    description = "Threads used for inference. More is faster up to a point; too many causes throttling on phones.",
+                    value = threadsValue,
+                    onValueChange = { threadsValue = it },
+                    onValueChangeFinished = { viewModel.setNumThreads(threadsValue.toInt()) },
+                    valueRange = 1f..maxThreads.toFloat(),
+                    steps = (maxThreads - 2).coerceAtLeast(0),
                 )
-            }
-            val maxThreads = remember { Runtime.getRuntime().availableProcessors() }
-            var threadsValue by remember { mutableFloatStateOf(uiState.numThreads.toFloat()) }
-            ParamSlider(
-                label = "CPU Threads: ${threadsValue.toInt()}",
-                description = "Threads used for inference. More is faster up to a point; too many causes throttling on phones.",
-                value = threadsValue,
-                onValueChange = { threadsValue = it },
-                onValueChangeFinished = { viewModel.setNumThreads(threadsValue.toInt()) },
-                valueRange = 1f..maxThreads.toFloat(),
-                steps = (maxThreads - 2).coerceAtLeast(0),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Memory-Map Model")
-                    Text("Load model pages on demand — lower RAM use, recommended", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Memory-Map Model")
+                        Text("Load model pages on demand — lower RAM use, recommended", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = uiState.useMmap, onCheckedChange = { viewModel.setUseMmap(it) })
                 }
-                Switch(checked = uiState.useMmap, onCheckedChange = { viewModel.setUseMmap(it) })
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Lock Model in RAM")
-                    Text("Prevents the model being swapped out; may fail silently on some devices", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Lock Model in RAM")
+                        Text("Prevents the model being swapped out; may fail silently on some devices", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = uiState.useMlock, onCheckedChange = { viewModel.setUseMlock(it) })
                 }
-                Switch(checked = uiState.useMlock, onCheckedChange = { viewModel.setUseMlock(it) })
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Quantized KV Cache (experimental)")
-                    Text("Halves memory used by long conversations. Turn off if a model fails to load.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(checked = uiState.kvCacheQ8, onCheckedChange = { viewModel.setKvCacheQ8(it) })
-            }
-            Text(
-                "Changes apply the next time a model is loaded.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            // Which ggml backend plugin actually won the runtime scoring on this
-            // device. Seven CPU variants ship in the APK and only one is chosen;
-            // without this there is no way to tell a phone running the fast
-            // dotprod/i8mm kernels from one that fell back to the armv8.0
-            // baseline, which is several times slower on quantized models.
-            // Selectable so it can be pasted into a bug report.
-            if (uiState.backendInfo.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Active backend", style = MaterialTheme.typography.bodyMedium)
-                SelectionContainer {
-                    Text(
-                        uiState.backendInfo.trim(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Quantized KV Cache (experimental)")
+                        Text("Halves memory used by long conversations. Turn off if a model fails to load.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = uiState.kvCacheQ8, onCheckedChange = { viewModel.setKvCacheQ8(it) })
                 }
                 Text(
-                    "Include this when reporting slow performance. DOTPROD and MATMUL_INT8 " +
-                        "mean the fast quantized-matmul kernels are in use.",
+                    "Changes apply the next time a model is loaded.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
 
-            HorizontalDivider()
-
-            // === SAMPLING PARAMETERS ===
-            SectionHeader("Sampling Parameters")
-
-            // Temperature
-            var tempValue by remember { mutableFloatStateOf(uiState.temperature) }
-            ParamSlider(
-                label = "Temperature: ${String.format("%.2f", tempValue)}",
-                description = "Controls randomness. Lower = more focused and deterministic. Higher = more creative and varied.",
-                value = tempValue,
-                onValueChange = { tempValue = it },
-                onValueChangeFinished = { viewModel.setTemperature(tempValue) },
-                valueRange = 0.1f..2.0f,
-                steps = 38,
-            )
-
-            // Top-P (nucleus sampling)
-            var topPValue by remember { mutableFloatStateOf(uiState.topP) }
-            ParamSlider(
-                label = "Top-P: ${String.format("%.2f", topPValue)}",
-                description = "Nucleus sampling. Only considers tokens whose cumulative probability exceeds this threshold. Lower = more focused.",
-                value = topPValue,
-                onValueChange = { topPValue = it },
-                onValueChangeFinished = { viewModel.setTopP(topPValue) },
-                valueRange = 0.1f..1.0f,
-                steps = 18,
-            )
-
-            // Top-K
-            var topKValue by remember { mutableIntStateOf(uiState.topK) }
-            ParamSlider(
-                label = "Top-K: $topKValue",
-                description = "Limits token selection to the K most likely next tokens. Lower = more focused. 0 = disabled.",
-                value = topKValue.toFloat(),
-                onValueChange = { topKValue = it.toInt() },
-                onValueChangeFinished = { viewModel.setTopK(topKValue) },
-                valueRange = 0f..100f,
-                steps = 20,
-            )
-
-            // Min-P
-            var minPValue by remember { mutableFloatStateOf(uiState.minP) }
-            ParamSlider(
-                label = "Min-P: ${String.format("%.2f", minPValue)}",
-                description = "Filters out tokens with probability below this fraction of the top token. Adaptive alternative to Top-K.",
-                value = minPValue,
-                onValueChange = { minPValue = it },
-                onValueChangeFinished = { viewModel.setMinP(minPValue) },
-                valueRange = 0.0f..0.5f,
-                steps = 10,
-            )
-
-            // Repeat Penalty
-            var repeatValue by remember { mutableFloatStateOf(uiState.repeatPenalty) }
-            ParamSlider(
-                label = "Repeat Penalty: ${String.format("%.2f", repeatValue)}",
-                description = "Penalises repeating tokens. 1.0 = no penalty. Higher values reduce repetition in output.",
-                value = repeatValue,
-                onValueChange = { repeatValue = it },
-                onValueChangeFinished = { viewModel.setRepeatPenalty(repeatValue) },
-                valueRange = 1.0f..2.0f,
-                steps = 20,
-            )
-
-            // Max tokens
-            Text("Max Tokens: ${uiState.maxTokens}", style = MaterialTheme.typography.bodyMedium)
-            Text("Maximum number of tokens the model will generate per response.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(256, 512, 1024, 2048).forEach { value ->
-                    Button(
-                        onClick = { viewModel.setMaxTokens(value) },
-                        colors = if (uiState.maxTokens == value) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
-                        modifier = Modifier.weight(1f),
-                    ) { Text("$value") }
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(3000, 3500, 4000).forEach { value ->
-                    Button(
-                        onClick = { viewModel.setMaxTokens(value) },
-                        colors = if (uiState.maxTokens == value) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
-                        modifier = Modifier.weight(1f),
-                    ) { Text("$value") }
-                }
-            }
-
-            // Context size slider
-            var ctxValue by remember { mutableFloatStateOf(uiState.contextSize.toFloat()) }
-            ParamSlider(
-                label = "Context Size: ${ctxValue.toInt()}",
-                description = "How many tokens of conversation history the model can see. Larger = more memory of past messages but uses more RAM.",
-                value = ctxValue,
-                onValueChange = { ctxValue = it },
-                onValueChangeFinished = { viewModel.setContextSize(ctxValue.toInt()) },
-                valueRange = 512f..16384f,
-                steps = 31,
-            )
-
-            HorizontalDivider()
-
-            // === THINKING TOGGLE ===
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Strip Thinking Tags")
-                    Text("Hide <think> blocks from model output", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(checked = uiState.disableThinking, onCheckedChange = { viewModel.setDisableThinking(it) })
-            }
-
-            HorizontalDivider()
-
-            // === SYSTEM PROMPT ===
-            SectionHeader("System Prompt")
-            var promptExpanded by remember { mutableStateOf(false) }
-            var customPrompt by rememberSaveable { mutableStateOf(uiState.customSystemPrompt) }
-            ExposedDropdownMenuBox(expanded = promptExpanded, onExpandedChange = { promptExpanded = it }) {
-                OutlinedTextField(
-                    value = SystemPrompts.getLabel(uiState.systemPromptKey),
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = promptExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-                )
-                ExposedDropdownMenu(expanded = promptExpanded, onDismissRequest = { promptExpanded = false }) {
-                    SystemPrompts.options.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option.label) },
-                            onClick = { viewModel.setSystemPrompt(option.key); promptExpanded = false }
+                // Which ggml backend plugin actually won the runtime scoring on this
+                // device. Seven CPU variants ship in the APK and only one is chosen;
+                // without this there is no way to tell a phone running the fast
+                // dotprod/i8mm kernels from one that fell back to the armv8.0
+                // baseline, which is several times slower on quantized models.
+                // Selectable so it can be pasted into a bug report.
+                if (uiState.backendInfo.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Active backend", style = MaterialTheme.typography.bodyMedium)
+                    SelectionContainer {
+                        Text(
+                            uiState.backendInfo.trim(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Text(
+                        "Include this when reporting slow performance. DOTPROD and MATMUL_INT8 " +
+                            "mean the fast quantized-matmul kernels are in use.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+
+                HorizontalDivider()
             }
-            if (uiState.systemPromptKey == "translator") {
-                var fromExpanded by remember { mutableStateOf(false) }
-                var toExpanded by remember { mutableStateOf(false) }
-                val fromLabel = SystemPrompts.languages.find { it.code == uiState.translatorFrom }?.label ?: "English"
-                val toLabel = SystemPrompts.languages.find { it.code == uiState.translatorTo }?.label ?: "Spanish"
+
+            if (Features.SAMPLING) {
+                // === SAMPLING PARAMETERS ===
+                SectionHeader("Sampling Parameters")
+
+                // Temperature
+                var tempValue by remember { mutableFloatStateOf(uiState.temperature) }
+                ParamSlider(
+                    label = "Temperature: ${String.format("%.2f", tempValue)}",
+                    description = "Controls randomness. Lower = more focused and deterministic. Higher = more creative and varied.",
+                    value = tempValue,
+                    onValueChange = { tempValue = it },
+                    onValueChangeFinished = { viewModel.setTemperature(tempValue) },
+                    valueRange = 0.1f..2.0f,
+                    steps = 38,
+                )
+
+                // Top-P (nucleus sampling)
+                var topPValue by remember { mutableFloatStateOf(uiState.topP) }
+                ParamSlider(
+                    label = "Top-P: ${String.format("%.2f", topPValue)}",
+                    description = "Nucleus sampling. Only considers tokens whose cumulative probability exceeds this threshold. Lower = more focused.",
+                    value = topPValue,
+                    onValueChange = { topPValue = it },
+                    onValueChangeFinished = { viewModel.setTopP(topPValue) },
+                    valueRange = 0.1f..1.0f,
+                    steps = 18,
+                )
+
+                // Top-K
+                var topKValue by remember { mutableIntStateOf(uiState.topK) }
+                ParamSlider(
+                    label = "Top-K: $topKValue",
+                    description = "Limits token selection to the K most likely next tokens. Lower = more focused. 0 = disabled.",
+                    value = topKValue.toFloat(),
+                    onValueChange = { topKValue = it.toInt() },
+                    onValueChangeFinished = { viewModel.setTopK(topKValue) },
+                    valueRange = 0f..100f,
+                    steps = 20,
+                )
+
+                // Min-P
+                var minPValue by remember { mutableFloatStateOf(uiState.minP) }
+                ParamSlider(
+                    label = "Min-P: ${String.format("%.2f", minPValue)}",
+                    description = "Filters out tokens with probability below this fraction of the top token. Adaptive alternative to Top-K.",
+                    value = minPValue,
+                    onValueChange = { minPValue = it },
+                    onValueChangeFinished = { viewModel.setMinP(minPValue) },
+                    valueRange = 0.0f..0.5f,
+                    steps = 10,
+                )
+
+                // Repeat Penalty
+                var repeatValue by remember { mutableFloatStateOf(uiState.repeatPenalty) }
+                ParamSlider(
+                    label = "Repeat Penalty: ${String.format("%.2f", repeatValue)}",
+                    description = "Penalises repeating tokens. 1.0 = no penalty. Higher values reduce repetition in output.",
+                    value = repeatValue,
+                    onValueChange = { repeatValue = it },
+                    onValueChangeFinished = { viewModel.setRepeatPenalty(repeatValue) },
+                    valueRange = 1.0f..2.0f,
+                    steps = 20,
+                )
+
+                // Max tokens
+                Text("Max Tokens: ${uiState.maxTokens}", style = MaterialTheme.typography.bodyMedium)
+                Text("Maximum number of tokens the model will generate per response.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(256, 512, 1024, 2048).forEach { value ->
+                        Button(
+                            onClick = { viewModel.setMaxTokens(value) },
+                            colors = if (uiState.maxTokens == value) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
+                            modifier = Modifier.weight(1f),
+                        ) { Text("$value") }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(3000, 3500, 4000).forEach { value ->
+                        Button(
+                            onClick = { viewModel.setMaxTokens(value) },
+                            colors = if (uiState.maxTokens == value) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
+                            modifier = Modifier.weight(1f),
+                        ) { Text("$value") }
+                    }
+                }
+
+                // Context size slider
+                var ctxValue by remember { mutableFloatStateOf(uiState.contextSize.toFloat()) }
+                ParamSlider(
+                    label = "Context Size: ${ctxValue.toInt()}",
+                    description = "How many tokens of conversation history the model can see. Larger = more memory of past messages but uses more RAM.",
+                    value = ctxValue,
+                    onValueChange = { ctxValue = it },
+                    onValueChangeFinished = { viewModel.setContextSize(ctxValue.toInt()) },
+                    valueRange = 512f..16384f,
+                    steps = 31,
+                )
+
+                HorizontalDivider()
+            }
+
+            if (Features.MARKDOWN) {
+                // === THINKING TOGGLE ===
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ExposedDropdownMenuBox(
-                        expanded = fromExpanded,
-                        onExpandedChange = { fromExpanded = it },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        OutlinedTextField(
-                            value = fromLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("From") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fromExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-                        )
-                        ExposedDropdownMenu(expanded = fromExpanded, onDismissRequest = { fromExpanded = false }) {
-                            SystemPrompts.languages.forEach { lang ->
-                                DropdownMenuItem(
-                                    text = { Text(lang.label) },
-                                    onClick = { viewModel.setTranslatorFrom(lang.code); fromExpanded = false },
-                                )
-                            }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Strip Thinking Tags")
+                        Text("Hide <think> blocks from model output", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = uiState.disableThinking, onCheckedChange = { viewModel.setDisableThinking(it) })
+                }
+
+                HorizontalDivider()
+            }
+
+            if (Features.SAMPLING) {
+                // === SYSTEM PROMPT ===
+                SectionHeader("System Prompt")
+                var promptExpanded by remember { mutableStateOf(false) }
+                var customPrompt by rememberSaveable { mutableStateOf(uiState.customSystemPrompt) }
+                ExposedDropdownMenuBox(expanded = promptExpanded, onExpandedChange = { promptExpanded = it }) {
+                    OutlinedTextField(
+                        value = SystemPrompts.getLabel(uiState.systemPromptKey),
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = promptExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                    )
+                    ExposedDropdownMenu(expanded = promptExpanded, onDismissRequest = { promptExpanded = false }) {
+                        SystemPrompts.options.filter { Features.POLISH || it.key != "translator" }.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.label) },
+                                onClick = { viewModel.setSystemPrompt(option.key); promptExpanded = false }
+                            )
                         }
                     }
-                    ExposedDropdownMenuBox(
-                        expanded = toExpanded,
-                        onExpandedChange = { toExpanded = it },
-                        modifier = Modifier.weight(1f),
+                }
+                if (uiState.systemPromptKey == "translator") {
+                    var fromExpanded by remember { mutableStateOf(false) }
+                    var toExpanded by remember { mutableStateOf(false) }
+                    val fromLabel = SystemPrompts.languages.find { it.code == uiState.translatorFrom }?.label ?: "English"
+                    val toLabel = SystemPrompts.languages.find { it.code == uiState.translatorTo }?.label ?: "Spanish"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        OutlinedTextField(
-                            value = toLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("To") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = toExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-                        )
-                        ExposedDropdownMenu(expanded = toExpanded, onDismissRequest = { toExpanded = false }) {
-                            SystemPrompts.languages.forEach { lang ->
-                                DropdownMenuItem(
-                                    text = { Text(lang.label) },
-                                    onClick = { viewModel.setTranslatorTo(lang.code); toExpanded = false },
-                                )
+                        ExposedDropdownMenuBox(
+                            expanded = fromExpanded,
+                            onExpandedChange = { fromExpanded = it },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            OutlinedTextField(
+                                value = fromLabel,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("From") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fromExpanded) },
+                                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                            )
+                            ExposedDropdownMenu(expanded = fromExpanded, onDismissRequest = { fromExpanded = false }) {
+                                SystemPrompts.languages.forEach { lang ->
+                                    DropdownMenuItem(
+                                        text = { Text(lang.label) },
+                                        onClick = { viewModel.setTranslatorFrom(lang.code); fromExpanded = false },
+                                    )
+                                }
+                            }
+                        }
+                        ExposedDropdownMenuBox(
+                            expanded = toExpanded,
+                            onExpandedChange = { toExpanded = it },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            OutlinedTextField(
+                                value = toLabel,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("To") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = toExpanded) },
+                                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                            )
+                            ExposedDropdownMenu(expanded = toExpanded, onDismissRequest = { toExpanded = false }) {
+                                SystemPrompts.languages.forEach { lang ->
+                                    DropdownMenuItem(
+                                        text = { Text(lang.label) },
+                                        onClick = { viewModel.setTranslatorTo(lang.code); toExpanded = false },
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
-            if (uiState.systemPromptKey == "custom") {
-                OutlinedTextField(value = customPrompt, onValueChange = { customPrompt = it; viewModel.setCustomSystemPrompt(it) }, label = { Text("Custom System Prompt") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 6)
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("LaTeX Math Hints")
-                    Text("Instruct the model to use \$...\$ notation for math", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (uiState.systemPromptKey == "custom") {
+                    OutlinedTextField(value = customPrompt, onValueChange = { customPrompt = it; viewModel.setCustomSystemPrompt(it) }, label = { Text("Custom System Prompt") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 6)
                 }
-                Switch(checked = uiState.mathLatexHints, onCheckedChange = { viewModel.setMathLatexHints(it) })
+                if (Features.POLISH) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("LaTeX Math Hints")
+                            Text("Instruct the model to use \$...\$ notation for math", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = uiState.mathLatexHints, onCheckedChange = { viewModel.setMathLatexHints(it) })
+                    }
+                }
+
+                HorizontalDivider()
             }
 
-            HorizontalDivider()
+            if (Features.SECURITY) {
+                // === SECURITY ===
+                SectionHeader("Security")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Biometric Lock")
+                    Switch(
+                        checked = uiState.biometricLock,
+                        onCheckedChange = { viewModel.setBiometricLock(it) }
+                    )
+                }
 
-            // === SECURITY ===
-            SectionHeader("Security")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Biometric Lock")
-                Switch(
-                    checked = uiState.biometricLock,
-                    onCheckedChange = { viewModel.setBiometricLock(it) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Auto-Lock on Background")
+                    Switch(
+                        checked = uiState.biometricLock && uiState.autoLockOnBackground,
+                        enabled = uiState.biometricLock,
+                        onCheckedChange = { viewModel.setAutoLockOnBackground(it) }
+                    )
+                }
+
+                HorizontalDivider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Screenshot Protection")
+                    Switch(
+                        checked = uiState.screenshotProtectionEnabled,
+                        onCheckedChange = { viewModel.setScreenshotProtectionEnabled(it) }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Tapjacking Protection")
+                    Switch(
+                        checked = uiState.tapjackingProtectionEnabled,
+                        onCheckedChange = { viewModel.setTapjackingProtectionEnabled(it) }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Accessibility Data Sensitivity")
+                    Switch(
+                        checked = uiState.sensitiveDataAccessibilityEnabled,
+                        onCheckedChange = { viewModel.setSensitiveDataAccessibilityEnabled(it) }
+                    )
+                }
+                Text(
+                    "Applies on Android 16+ to mark chat content as sensitive for accessibility.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                HorizontalDivider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Secure Storage Backend")
+                    Text(uiState.secureStorageBackend)
+                }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Auto-Lock on Background")
-                Switch(
-                    checked = uiState.biometricLock && uiState.autoLockOnBackground,
-                    enabled = uiState.biometricLock,
-                    onCheckedChange = { viewModel.setAutoLockOnBackground(it) }
-                )
+            if (Features.DATA_TTS) {
+                // === DATA ===
+                SectionHeader("Data Management")
+                Button(onClick = { exportLauncher.launch("airgap_export.json") }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.Upload, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text("Export Chats as JSON")
+                }
+                Button(onClick = { importChatsLauncher.launch(arrayOf("application/json")) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text("Import Chats from JSON")
+                }
+                Button(onClick = { showClearDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+                    Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text("Clear All Chats")
+                }
+
+                HorizontalDivider()
             }
 
-            HorizontalDivider()
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Screenshot Protection")
-                Switch(
-                    checked = uiState.screenshotProtectionEnabled,
-                    onCheckedChange = { viewModel.setScreenshotProtectionEnabled(it) }
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Tapjacking Protection")
-                Switch(
-                    checked = uiState.tapjackingProtectionEnabled,
-                    onCheckedChange = { viewModel.setTapjackingProtectionEnabled(it) }
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Accessibility Data Sensitivity")
-                Switch(
-                    checked = uiState.sensitiveDataAccessibilityEnabled,
-                    onCheckedChange = { viewModel.setSensitiveDataAccessibilityEnabled(it) }
-                )
-            }
-            Text(
-                "Applies on Android 16+ to mark chat content as sensitive for accessibility.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            HorizontalDivider()
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Secure Storage Backend")
-                Text(uiState.secureStorageBackend)
-            }
-
-            // === DATA ===
-            SectionHeader("Data Management")
-            Button(onClick = { exportLauncher.launch("airgap_export.json") }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Upload, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                Text("Export Chats as JSON")
-            }
-            Button(onClick = { importChatsLauncher.launch(arrayOf("application/json")) }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                Text("Import Chats from JSON")
-            }
-            Button(onClick = { showClearDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-                Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                Text("Clear All Chats")
-            }
-
-            HorizontalDivider()
-
-            // === ABOUT & HELP ===
-            Button(onClick = onNavigateToHelp, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
-                Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                Text("Help & Model Guide")
-            }
-            Button(onClick = onNavigateToAbout, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
-                Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                Text("About Airgap")
+            if (Features.POLISH) {
+                // === ABOUT & HELP ===
+                Button(onClick = onNavigateToHelp, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
+                    Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text("Help & Model Guide")
+                }
+                Button(onClick = onNavigateToAbout, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
+                    Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text("About Airgap")
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))

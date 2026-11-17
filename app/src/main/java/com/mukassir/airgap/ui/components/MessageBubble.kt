@@ -1,5 +1,6 @@
 package com.mukassir.airgap.ui.components
 
+import com.mukassir.airgap.Features
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,11 +64,12 @@ fun MessageBubble(
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 SelectionContainer {
-                    if (isUser) {
+                    if (isUser || !Features.MARKDOWN) {
                         Text(
                             text = content,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     } else {
                         MarkdownText(

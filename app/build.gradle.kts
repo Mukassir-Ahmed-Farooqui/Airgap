@@ -6,6 +6,11 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// Closed-testing release stage (1..10). See Features.kt. Pass -PreleaseStage=N;
+// defaults to 10, the full app. Each stage gets its own Play versionCode (10..19).
+val releaseStage: Int = ((project.findProperty("releaseStage") as? String)?.toIntOrNull() ?: 10)
+    .also { require(it in 1..10) { "releaseStage must be 1..10, was $it" } }
+
 android {
     namespace = "com.mukassir.airgap"
     compileSdk = 37
@@ -14,12 +19,13 @@ android {
         applicationId = "com.mukassir.airgap"
         minSdk = 33
         targetSdk = 37
-        versionCode = 9
-        versionName = "5.1.1"
+        versionCode = 9 + releaseStage
+        versionName = if (releaseStage >= 10) "1.0.0" else "0.$releaseStage.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val certSha256 = (project.findProperty("AIRGAP_CERT_SHA256") as? String) ?: ""
         buildConfigField("String", "AIRGAP_CERT_SHA256", "\"$certSha256\"")
+        buildConfigField("int", "RELEASE_STAGE", releaseStage.toString())
 
         ndk {
             abiFilters += "arm64-v8a"

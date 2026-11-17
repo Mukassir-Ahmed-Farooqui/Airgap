@@ -1,0 +1,65 @@
+name: Closed testing AABs
+
+# Builds one release AAB per closed-testing stage (see Features.kt) and attaches
+# them, UNSIGNED, to a temporary pre-release. They are signed with the upload key
+# outside CI, so no keystore or password ever lives in this repo or its secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      stages:
+        description: "Stages to build, space separated (1-10)"
+        required: true
+        default: "1 2 3 4 5"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install NDK, CMake and platform
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "ndk;27.2.12479018" "cmake;3.31.6" "platforms;android-37" "build-tools;36.0.0"
+
+      - name: Vulkan and SPIR-V headers
+        run: |
+          git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers.git
+          git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git
+          cmake -S SPIRV-Headers -B SPIRV-Headers/build -DCMAKE_INSTALL_PREFIX="$PWD/SPIRV-Headers/install"
+          cmake --install SPIRV-Headers/build
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build AABs
+        run: |
+          mkdir -p out
+          for n in ${{ inputs.stages }}; do
+            ./gradlew --no-configuration-cache :app:bundleRelease -PreleaseStage=$n
+            cp app/build/outputs/bundle/release/app-release.aab "out/airgap-stage$n-vc$((9 + n))-unsigned.aab"
+          done
+          ls -la out
+
+      - name: Attach to a temporary pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="closed-testing-${{ github.run_number }}"
+          gh release create "$tag" out/*.aab --prerelease --target "${{ github.sha }}" \
+            --title "Closed testing build ${{ github.run_number }} (unsigned)" \
+            --notes "Unsigned stage AABs (${{ inputs.stages }}). Sign with the upload key before uploading. Temporary: delete after download."

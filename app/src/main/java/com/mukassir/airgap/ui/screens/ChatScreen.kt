@@ -1,6 +1,7 @@
 package com.mukassir.airgap.ui.screens
 
 import android.os.Build
+import com.mukassir.airgap.Features
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -145,7 +146,7 @@ fun ChatScreen(
     }
 
     LaunchedEffect(uiState.showConversationDrawer) {
-        if (uiState.showConversationDrawer) drawerState.open() else drawerState.close()
+        if (uiState.showConversationDrawer && Features.MULTI_CHAT) drawerState.open() else drawerState.close()
     }
 
     ModalNavigationDrawer(
@@ -160,7 +161,7 @@ fun ChatScreen(
                 onNew = { viewModel.newConversation() },
             )
         },
-        gesturesEnabled = true,
+        gesturesEnabled = Features.MULTI_CHAT,
     ) {
         Scaffold(
             topBar = {
@@ -201,16 +202,20 @@ fun ChatScreen(
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                        if (Features.MULTI_CHAT) {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                            }
                         }
                     },
                     actions = {
-                        IconButton(onClick = { showSearch = !showSearch; if (!showSearch) searchQuery = "" }) {
-                            Icon(
-                                if (showSearch) Icons.Filled.Close else Icons.Filled.Search,
-                                contentDescription = "Search"
-                            )
+                        if (Features.FONTS_SEARCH) {
+                            IconButton(onClick = { showSearch = !showSearch; if (!showSearch) searchQuery = "" }) {
+                                Icon(
+                                    if (showSearch) Icons.Filled.Close else Icons.Filled.Search,
+                                    contentDescription = "Search"
+                                )
+                            }
                         }
                         IconButton(onClick = { viewModel.newConversation() }) {
                             Icon(Icons.Filled.Add, contentDescription = "New Chat")
@@ -343,7 +348,7 @@ fun ChatScreen(
                             content = message.content,
                             isUser = message.role == "user",
                             onLongPress = { deleteTarget = message },
-                            onSpeak = if (message.role == "assistant") {
+                            onSpeak = if (Features.DATA_TTS && message.role == "assistant") {
                                 { viewModel.speakMessage(message.id, message.content) }
                             } else null,
                             onStopSpeaking = { viewModel.stopSpeaking() },

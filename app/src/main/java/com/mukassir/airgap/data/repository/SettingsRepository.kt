@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.mukassir.airgap.Features
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -116,51 +117,51 @@ class SettingsRepository @Inject constructor(
     }
 
     var temperature: Float
-        get() = prefs.getFloat(KEY_TEMPERATURE, DEFAULT_TEMPERATURE)
+        get() = if (Features.SAMPLING) prefs.getFloat(KEY_TEMPERATURE, DEFAULT_TEMPERATURE) else DEFAULT_TEMPERATURE
         set(value) = prefs.edit().putFloat(KEY_TEMPERATURE, value).apply()
 
     var maxTokens: Int
-        get() = prefs.getInt(KEY_MAX_TOKENS, DEFAULT_MAX_TOKENS)
+        get() = if (Features.SAMPLING) prefs.getInt(KEY_MAX_TOKENS, DEFAULT_MAX_TOKENS) else DEFAULT_MAX_TOKENS
         set(value) = prefs.edit().putInt(KEY_MAX_TOKENS, value).apply()
 
     var contextSize: Int
-        get() = prefs.getInt(KEY_CONTEXT_SIZE, DEFAULT_CONTEXT_SIZE)
+        get() = if (Features.SAMPLING) prefs.getInt(KEY_CONTEXT_SIZE, DEFAULT_CONTEXT_SIZE) else DEFAULT_CONTEXT_SIZE
         set(value) = prefs.edit().putInt(KEY_CONTEXT_SIZE, value).apply()
 
     var topP: Float
-        get() = prefs.getFloat(KEY_TOP_P, DEFAULT_TOP_P)
+        get() = if (Features.SAMPLING) prefs.getFloat(KEY_TOP_P, DEFAULT_TOP_P) else DEFAULT_TOP_P
         set(value) = prefs.edit().putFloat(KEY_TOP_P, value).apply()
 
     var topK: Int
-        get() = prefs.getInt(KEY_TOP_K, DEFAULT_TOP_K)
+        get() = if (Features.SAMPLING) prefs.getInt(KEY_TOP_K, DEFAULT_TOP_K) else DEFAULT_TOP_K
         set(value) = prefs.edit().putInt(KEY_TOP_K, value).apply()
 
     var minP: Float
-        get() = prefs.getFloat(KEY_MIN_P, DEFAULT_MIN_P)
+        get() = if (Features.SAMPLING) prefs.getFloat(KEY_MIN_P, DEFAULT_MIN_P) else DEFAULT_MIN_P
         set(value) = prefs.edit().putFloat(KEY_MIN_P, value).apply()
 
     var repeatPenalty: Float
-        get() = prefs.getFloat(KEY_REPEAT_PENALTY, DEFAULT_REPEAT_PENALTY)
+        get() = if (Features.SAMPLING) prefs.getFloat(KEY_REPEAT_PENALTY, DEFAULT_REPEAT_PENALTY) else DEFAULT_REPEAT_PENALTY
         set(value) = prefs.edit().putFloat(KEY_REPEAT_PENALTY, value).apply()
 
     var biometricLock: Boolean
-        get() = prefs.getBoolean(KEY_BIOMETRIC_LOCK, false)
+        get() = if (Features.SECURITY) prefs.getBoolean(KEY_BIOMETRIC_LOCK, false) else false
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_LOCK, value).apply()
 
     var screenshotProtectionEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SCREENSHOT_PROTECTION, DEFAULT_SCREENSHOT_PROTECTION)
+        get() = if (Features.SECURITY) prefs.getBoolean(KEY_SCREENSHOT_PROTECTION, DEFAULT_SCREENSHOT_PROTECTION) else DEFAULT_SCREENSHOT_PROTECTION
         set(value) = prefs.edit().putBoolean(KEY_SCREENSHOT_PROTECTION, value).apply()
 
     var tapjackingProtectionEnabled: Boolean
-        get() = prefs.getBoolean(KEY_TAPJACKING_PROTECTION, DEFAULT_TAPJACKING_PROTECTION)
+        get() = if (Features.SECURITY) prefs.getBoolean(KEY_TAPJACKING_PROTECTION, DEFAULT_TAPJACKING_PROTECTION) else DEFAULT_TAPJACKING_PROTECTION
         set(value) = prefs.edit().putBoolean(KEY_TAPJACKING_PROTECTION, value).apply()
 
     var sensitiveDataAccessibilityEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SENSITIVE_DATA_ACCESSIBILITY, DEFAULT_SENSITIVE_DATA_ACCESSIBILITY)
+        get() = if (Features.SECURITY) prefs.getBoolean(KEY_SENSITIVE_DATA_ACCESSIBILITY, DEFAULT_SENSITIVE_DATA_ACCESSIBILITY) else DEFAULT_SENSITIVE_DATA_ACCESSIBILITY
         set(value) = prefs.edit().putBoolean(KEY_SENSITIVE_DATA_ACCESSIBILITY, value).apply()
 
     var autoLockOnBackgroundEnabled: Boolean
-        get() = prefs.getBoolean(KEY_AUTO_LOCK_ON_BACKGROUND, DEFAULT_AUTO_LOCK_ON_BACKGROUND)
+        get() = if (Features.SECURITY) prefs.getBoolean(KEY_AUTO_LOCK_ON_BACKGROUND, DEFAULT_AUTO_LOCK_ON_BACKGROUND) else DEFAULT_AUTO_LOCK_ON_BACKGROUND
         set(value) = prefs.edit().putBoolean(KEY_AUTO_LOCK_ON_BACKGROUND, value).apply()
 
     var activeModelId: Long
@@ -168,11 +169,15 @@ class SettingsRepository @Inject constructor(
         set(value) = prefs.edit().putLong(KEY_ACTIVE_MODEL_ID, value).apply()
 
     var systemPromptKey: String
-        get() = prefs.getString(KEY_SYSTEM_PROMPT_KEY, "default") ?: "default"
+        get() {
+            if (!Features.SAMPLING) return "default"
+            val key = prefs.getString(KEY_SYSTEM_PROMPT_KEY, "default") ?: "default"
+            return if (!Features.POLISH && key == "translator") "default" else key
+        }
         set(value) = prefs.edit().putString(KEY_SYSTEM_PROMPT_KEY, value).apply()
 
     var customSystemPrompt: String
-        get() = prefs.getString(KEY_CUSTOM_SYSTEM_PROMPT, "") ?: ""
+        get() = if (Features.SAMPLING) prefs.getString(KEY_CUSTOM_SYSTEM_PROMPT, "") ?: "" else ""
         set(value) = prefs.edit().putString(KEY_CUSTOM_SYSTEM_PROMPT, value).apply()
 
     var onboardingComplete: Boolean
@@ -180,23 +185,23 @@ class SettingsRepository @Inject constructor(
         set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).apply()
 
     var numThreads: Int
-        get() = prefs.getInt(KEY_NUM_THREADS, DEFAULT_NUM_THREADS)
+        get() = if (Features.PERFORMANCE) prefs.getInt(KEY_NUM_THREADS, DEFAULT_NUM_THREADS) else DEFAULT_NUM_THREADS
         set(value) = prefs.edit().putInt(KEY_NUM_THREADS, value).apply()
 
     var themeMode: String
-        get() = prefs.getString(KEY_THEME_MODE, "PTYXIS") ?: "PTYXIS"
+        get() = if (Features.THEMES) prefs.getString(KEY_THEME_MODE, "PTYXIS") ?: "PTYXIS" else "PTYXIS"
         set(value) = prefs.edit().putString(KEY_THEME_MODE, value).apply()
 
     var accentColor: String
-        get() = prefs.getString(KEY_ACCENT_COLOR, "dynamic") ?: "dynamic"
+        get() = if (Features.THEMES) prefs.getString(KEY_ACCENT_COLOR, "dynamic") ?: "dynamic" else "dynamic"
         set(value) = prefs.edit().putString(KEY_ACCENT_COLOR, value).apply()
 
     var disableThinking: Boolean
-        get() = prefs.getBoolean(KEY_DISABLE_THINKING, true)
+        get() = if (Features.MARKDOWN) prefs.getBoolean(KEY_DISABLE_THINKING, true) else true
         set(value) = prefs.edit().putBoolean(KEY_DISABLE_THINKING, value).apply()
 
     var mathLatexHints: Boolean
-        get() = prefs.getBoolean(KEY_MATH_LATEX_HINTS, false)
+        get() = if (Features.POLISH) prefs.getBoolean(KEY_MATH_LATEX_HINTS, false) else false
         set(value) = prefs.edit().putBoolean(KEY_MATH_LATEX_HINTS, value).apply()
 
     var translatorFrom: String
@@ -208,40 +213,40 @@ class SettingsRepository @Inject constructor(
         set(value) = prefs.edit().putString(KEY_TRANSLATOR_TO, value).apply()
 
     var catppuccinAccent: String
-        get() = prefs.getString(KEY_CATPPUCCIN_ACCENT, "mauve") ?: "mauve"
+        get() = if (Features.THEMES) prefs.getString(KEY_CATPPUCCIN_ACCENT, "mauve") ?: "mauve" else "mauve"
         set(value) = prefs.edit().putString(KEY_CATPPUCCIN_ACCENT, value).apply()
 
     var draculaAccent: String
-        get() = prefs.getString(KEY_DRACULA_ACCENT, "purple") ?: "purple"
+        get() = if (Features.THEMES) prefs.getString(KEY_DRACULA_ACCENT, "purple") ?: "purple" else "purple"
         set(value) = prefs.edit().putString(KEY_DRACULA_ACCENT, value).apply()
 
     var catppuccinFlavor: String
-        get() = prefs.getString(KEY_CATPPUCCIN_FLAVOR, "mocha") ?: "mocha"
+        get() = if (Features.THEMES) prefs.getString(KEY_CATPPUCCIN_FLAVOR, "mocha") ?: "mocha" else "mocha"
         set(value) = prefs.edit().putString(KEY_CATPPUCCIN_FLAVOR, value).apply()
 
     var ptyxisPalette: String
-        get() = prefs.getString(KEY_PTYXIS_PALETTE, "cobalt_neon") ?: "cobalt_neon"
+        get() = if (Features.THEMES) prefs.getString(KEY_PTYXIS_PALETTE, "cobalt_neon") ?: "cobalt_neon" else "cobalt_neon"
         set(value) = prefs.edit().putString(KEY_PTYXIS_PALETTE, value).apply()
 
     var monochromeAccents: Boolean
-        get() = prefs.getBoolean(KEY_MONOCHROME_ACCENTS, false)
+        get() = if (Features.THEMES) prefs.getBoolean(KEY_MONOCHROME_ACCENTS, false) else false
         set(value) = prefs.edit().putBoolean(KEY_MONOCHROME_ACCENTS, value).apply()
 
     var appFont: String
-        get() = prefs.getString(KEY_APP_FONT, "turret_road") ?: "turret_road"
+        get() = if (Features.FONTS_SEARCH) prefs.getString(KEY_APP_FONT, "turret_road") ?: "turret_road" else "turret_road"
         set(value) = prefs.edit().putString(KEY_APP_FONT, value).apply()
 
     var fontScale: Float
-        get() = prefs.getFloat(KEY_FONT_SCALE, 1.0f)
+        get() = if (Features.FONTS_SEARCH) prefs.getFloat(KEY_FONT_SCALE, 1.0f) else 1.0f
         set(value) = prefs.edit().putFloat(KEY_FONT_SCALE, value).apply()
 
     // 99 = "offload all layers"; only takes effect when useGpu is on.
     var gpuLayers: Int
-        get() = prefs.getInt(KEY_GPU_LAYERS, 99)
+        get() = if (Features.PERFORMANCE) prefs.getInt(KEY_GPU_LAYERS, 99) else 99
         set(value) = prefs.edit().putInt(KEY_GPU_LAYERS, value).apply()
 
     var useGpu: Boolean
-        get() = prefs.getBoolean(KEY_USE_GPU, false)
+        get() = if (Features.PERFORMANCE) prefs.getBoolean(KEY_USE_GPU, false) else false
         set(value) = prefs.edit().putBoolean(KEY_USE_GPU, value).apply()
 
     // Defaults off: mapping the weights leaves them as file-backed pages the kernel
@@ -249,14 +254,14 @@ class SettingsRepository @Inject constructor(
     // Reading the model into anonymous memory once is measurably quicker to first
     // token on phones. Users who are tight on RAM can turn it back on.
     var useMmap: Boolean
-        get() = prefs.getBoolean(KEY_USE_MMAP, false)
+        get() = if (Features.PERFORMANCE) prefs.getBoolean(KEY_USE_MMAP, false) else false
         set(value) = prefs.edit().putBoolean(KEY_USE_MMAP, value).apply()
 
     var useMlock: Boolean
-        get() = prefs.getBoolean(KEY_USE_MLOCK, false)
+        get() = if (Features.PERFORMANCE) prefs.getBoolean(KEY_USE_MLOCK, false) else false
         set(value) = prefs.edit().putBoolean(KEY_USE_MLOCK, value).apply()
 
     var kvCacheQ8: Boolean
-        get() = prefs.getBoolean(KEY_KV_CACHE_Q8, false)
+        get() = if (Features.PERFORMANCE) prefs.getBoolean(KEY_KV_CACHE_Q8, false) else false
         set(value) = prefs.edit().putBoolean(KEY_KV_CACHE_Q8, value).apply()
 }
