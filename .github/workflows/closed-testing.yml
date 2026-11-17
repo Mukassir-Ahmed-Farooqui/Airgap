@@ -36,7 +36,10 @@ jobs:
           [ -x "$SDKM" ] || SDKM=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
           yes | "$SDKM" --licenses > /dev/null || true
-          "$SDKM" "ndk;27.2.12479018" "cmake;3.31.6" "platforms;android-37" "build-tools;36.0.0"
+          "$SDKM" "ndk;27.2.12479018" "cmake;3.31.6" "build-tools;36.0.0"
+          PLAT=$("$SDKM" --list 2>/dev/null | grep -oE 'platforms;android-37(\.[0-9]+)?' | sort -V | tail -1)
+          echo "Platform package: ${PLAT:-none listed, AGP will fetch it}"
+          if [ -n "$PLAT" ]; then "$SDKM" "$PLAT"; fi
 
       - name: Vulkan and SPIR-V headers
         run: |
