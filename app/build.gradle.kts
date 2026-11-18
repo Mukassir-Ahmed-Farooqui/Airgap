@@ -19,7 +19,8 @@ android {
         applicationId = "com.mukassir.airgap"
         minSdk = 29
         targetSdk = 37
-        versionCode = releaseStage
+        // -PversionCodeOverride=N bumps the code for a rebuild of a stage Play already has.
+        versionCode = (project.findProperty("versionCodeOverride") as? String)?.toIntOrNull() ?: releaseStage
         versionName = if (releaseStage >= 10) "1.0.0" else "0.$releaseStage.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

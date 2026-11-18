@@ -12,6 +12,10 @@ on:
         description: "Stages to build, space separated (1-10)"
         required: true
         default: "1 2 3 4 5"
+      version_code:
+        description: "Optional versionCode override (single stage only), for rebuilding a stage Play already has"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -55,9 +59,11 @@ jobs:
       - name: Build AABs
         run: |
           mkdir -p out
+          vc_override="${{ inputs.version_code }}"
           for n in ${{ inputs.stages }}; do
-            ./gradlew --no-configuration-cache :app:bundleRelease -PreleaseStage=$n
-            cp app/build/outputs/bundle/release/app-release.aab "out/airgap-stage$n-vc$n-unsigned.aab"
+            vc="${vc_override:-$n}"
+            ./gradlew --no-configuration-cache :app:bundleRelease -PreleaseStage=$n -PversionCodeOverride=$vc
+            cp app/build/outputs/bundle/release/app-release.aab "out/airgap-stage$n-vc$vc-unsigned.aab"
           done
           ls -la out
 
