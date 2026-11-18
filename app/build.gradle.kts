@@ -17,7 +17,7 @@ android {
 
     defaultConfig {
         applicationId = "com.mukassir.airgap"
-        minSdk = 33
+        minSdk = 29
         targetSdk = 37
         versionCode = releaseStage
         versionName = if (releaseStage >= 10) "1.0.0" else "0.$releaseStage.0"

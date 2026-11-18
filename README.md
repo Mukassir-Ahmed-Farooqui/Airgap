@@ -193,7 +193,7 @@ Features a `TtsHelper` for reading AI responses aloud and a `MemoryMonitor` to e
 To build and run Airgap from source, ensure your development environment is configured with:
 
 - **Android Studio** (Koala or newer recommended)
-- **Android SDK** (Min SDK 33, Target SDK 37)
+- **Android SDK** (Min SDK 29, Target SDK 37)
 - **Android NDK** (Required for compiling `ggml` and C++ bindings)
 - **CMake** (Required by Gradle for native builds)
 - **JDK 17** (Required for Gradle build steps)
@@ -223,7 +223,7 @@ To build and run Airgap from source, ensure your development environment is conf
 
 ## Running the Application
 
-1. Connect an Android device running Android 13 (API 33) or higher, or start an Android Emulator. *(Note: Vulkan acceleration works best on physical devices).*
+1. Connect an Android device running Android 10 (API 29) or higher, or start an Android Emulator. *(Note: Vulkan acceleration works best on physical devices).*
 2. Click the **Run** button (▶) in Android Studio.
 3. Upon first launch, complete the **Onboarding** flow.
 4. **Load a Model**: Navigate to settings to configure or load your first local `.gguf` model.
