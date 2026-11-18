@@ -7,7 +7,7 @@ plugins {
 }
 
 // Closed-testing release stage (1..10). See Features.kt. Pass -PreleaseStage=N;
-// defaults to 10, the full app. Each stage gets its own Play versionCode (10..19).
+// defaults to 10, the full app. Each stage gets its own Play versionCode (1..10).
 val releaseStage: Int = ((project.findProperty("releaseStage") as? String)?.toIntOrNull() ?: 10)
     .also { require(it in 1..10) { "releaseStage must be 1..10, was $it" } }
 
@@ -19,7 +19,7 @@ android {
         applicationId = "com.mukassir.airgap"
         minSdk = 33
         targetSdk = 37
-        versionCode = 9 + releaseStage
+        versionCode = releaseStage
         versionName = if (releaseStage >= 10) "1.0.0" else "0.$releaseStage.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

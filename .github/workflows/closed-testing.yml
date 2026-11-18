@@ -55,7 +55,7 @@ jobs:
           mkdir -p out
           for n in ${{ inputs.stages }}; do
             ./gradlew --no-configuration-cache :app:bundleRelease -PreleaseStage=$n
-            cp app/build/outputs/bundle/release/app-release.aab "out/airgap-stage$n-vc$((9 + n))-unsigned.aab"
+            cp app/build/outputs/bundle/release/app-release.aab "out/airgap-stage$n-vc$n-unsigned.aab"
           done
           ls -la out
 
