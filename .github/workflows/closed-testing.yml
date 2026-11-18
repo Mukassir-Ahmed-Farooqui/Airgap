@@ -1,8 +1,10 @@
 name: Closed testing AABs
 
-# Builds one release AAB per closed-testing stage (see Features.kt) and attaches
-# them, UNSIGNED, to a temporary pre-release. They are signed with the upload key
-# outside CI, so no keystore or password ever lives in this repo or its secrets.
+# Builds one release AAB per closed-testing stage (see Features.kt), signs each with
+# the upload key from repo secrets, and attaches them to a temporary pre-release.
+# Secrets: AIRGAP_KEYSTORE_B64 (base64 of the .jks), AIRGAP_KEYSTORE_PASSWORD,
+# AIRGAP_KEY_ALIAS. The key password is the keystore password (PKCS12).
+# Without the secrets, the AABs are attached unsigned as before.
 on:
   workflow_dispatch:
     inputs:
@@ -59,11 +61,36 @@ jobs:
           done
           ls -la out
 
+      - name: Sign AABs with the upload key
+        env:
+          KS_B64: ${{ secrets.AIRGAP_KEYSTORE_B64 }}
+          STOREPASS: ${{ secrets.AIRGAP_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AIRGAP_KEY_ALIAS }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$STOREPASS" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "Signing secrets not set; leaving AABs unsigned."
+            echo "SIGNED=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          KS="$RUNNER_TEMP/upload.jks"
+          echo "$KS_B64" | base64 -d > "$KS"
+          for f in out/*-unsigned.aab; do
+            signed="${f%-unsigned.aab}.aab"
+            jarsigner -keystore "$KS" -storepass:env STOREPASS -keypass:env STOREPASS \
+              -sigalg SHA256withRSA -digestalg SHA-256 -signedjar "$signed" "$f" "$KEY_ALIAS"
+            jarsigner -verify "$signed"
+            rm "$f"
+          done
+          rm -f "$KS"
+          echo "SIGNED=true" >> "$GITHUB_ENV"
+          ls -la out
+
       - name: Attach to a temporary pre-release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="closed-testing-${{ github.run_number }}"
+          if [ "$SIGNED" = "true" ]; then label="signed"; note="Signed with the upload key, ready for Play Console."; else label="unsigned"; note="Unsigned. Sign with the upload key before uploading."; fi
           gh release create "$tag" out/*.aab --prerelease --target "${{ github.sha }}" \
-            --title "Closed testing build ${{ github.run_number }} (unsigned)" \
-            --notes "Unsigned stage AABs (${{ inputs.stages }}). Sign with the upload key before uploading. Temporary: delete after download."
+            --title "Closed testing build ${{ github.run_number }} ($label)" \
+            --notes "Stage AABs (${{ inputs.stages }}). $note Temporary: delete after download."
